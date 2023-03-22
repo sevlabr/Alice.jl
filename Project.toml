@@ -1,0 +1,4 @@
+name = "Alice"
+uuid = "42c50be3-90ba-4231-9f2e-9ccc20daf778"
+authors = ["sevlabr <sevlabr@yandex.ru>"]
+version = "0.1.0"
