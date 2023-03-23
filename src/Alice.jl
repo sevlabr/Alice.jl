@@ -1,5 +1,9 @@
 module Alice
 
-greet() = print("Hello World!")
+function inc(a::Int)
+    a + 1
+end
 
-end # module Alice
+println("Result: ", inc(99))
+
+end
