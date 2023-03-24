@@ -1,8 +1,4 @@
-using Test
 using Alice
+using Test
 
-@testset "test inc" begin
-    @test Alice.inc(-1) == 0
-    @test Alice.inc(1)  == 2
-    @test Alice.inc(0)  == 1
-end
+include("geometry/utils.jl")

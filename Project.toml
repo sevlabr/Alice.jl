@@ -2,3 +2,7 @@ name = "Alice"
 uuid = "42c50be3-90ba-4231-9f2e-9ccc20daf778"
 authors = ["sevlabr <sevlabr@yandex.ru>"]
 version = "0.1.0"
+
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

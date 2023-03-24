@@ -1,9 +1,11 @@
 module Alice
 
-function inc(a::Int)
-    a + 1
-end
+include("geometry/utils.jl")
 
-println("Result: ", inc(99))
+export
+    Node, Triangle,
 
-end
+    simple_delaunay_condition, robust_delaunay_condition,
+    isinside
+
+end # module Alice

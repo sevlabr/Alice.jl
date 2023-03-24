@@ -1,18 +1,9 @@
+using LinearAlgebra: det
+
 "Vertex of a `Triangle`."
 struct Node
     x::Float64
     y::Float64
-end
-
-"3 vertices represent a `Triangle`."
-struct Triangle
-    nodes::Vector{Node}
-end
-
-"`Triangle` and 3 adjacent `Triangle`s."
-struct MeshNode
-    focus::Triangle
-    triangles::Vector{Triangle}
 end
 
 "Get `x` and `y` of a given `Node`."
@@ -20,12 +11,21 @@ function nodexy(n::Node)
     [n.x, n.y]
 end
 
+
+"3 vertices represent a `Triangle`."
+struct Triangle
+    nodes::Vector{Node}
+end
+
 "Get `Node`s of a given `Triangle`."
 function tnodes(t::Triangle)
     t.nodes
 end
 
-"Return 3x2 matrix each row of which is `x` and `y` coordinates of a vertex."
+"""
+Return ``3 \\times 2`` `Matrix` each row of which is
+`x` and `y` coordinates of a vertex.
+"""
 function tvertices(t::Triangle)
     xys = zeros(Float64, 3, 2)
     for (idx, node) in enumerate(tnodes(t))
@@ -35,12 +35,32 @@ function tvertices(t::Triangle)
     return xys
 end
 
+"Return ``2S`` where ``S`` is an oriented area of `t`."
+function t2area(t::Triangle)
+    (x1, x2, x3, y1, y2, y3) = tvertices(t)
+    return (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3)
+end
+
+"Return -1 if `Node`s of `t` are given in a clockwise order and 1 otherwise."
+function tsign(t::Triangle)
+    return sign(t2area(t))
+end
+
+
+"`Triangle` and 3 adjacent `Triangle`s."
+struct MeshNode
+    focus::Triangle
+    triangles::Vector{Triangle}
+end
+
+
 """
-    _check_delaunay_condition(t::Triangle, x::Float64, y::Float64)
+    _simple_delaunay_condition(t::Triangle, x::Float64, y::Float64)
 
 Check if a point is outside of a circumscribed circle or not.
 
-Uses approach with calculating both sin and cos.
+Uses approach with calculating both ``sin`` and ``cos`` of the opposite corners.
+
 !!! note
 
     `x` and `y` must represent a point which is inside an angle
@@ -50,7 +70,7 @@ Uses approach with calculating both sin and cos.
 
     Points in `Triangle` must be given in a clockwise order!
 """
-function _check_delaunay_condition(t::Triangle, x::Float64, y::Float64)
+function _simple_delaunay_condition(t::Triangle, x::Float64, y::Float64)
     (x1, x2, x3, y1, y2, y3) = tvertices(t)
 
     na = (x  - x1) * (y  - y3) - (x  - x3) * (y  - y1)
@@ -62,11 +82,12 @@ function _check_delaunay_condition(t::Triangle, x::Float64, y::Float64)
 end
 
 """
-    check_delaunay_condition(t::Triangle, x::Float64, y::Float64)
+    simple_delaunay_condition(t::Triangle, x::Float64, y::Float64)
 
 Return `true` if a point is outside of a circumscribed circle and `false` otherwise.
 
-Uses faster approach which sometimes reduses to calculating only cos.
+Uses faster approach which sometimes reduses to calculating only
+``cos`` of the opposite corners.
 
 !!! note
 
@@ -79,16 +100,18 @@ Uses faster approach which sometimes reduses to calculating only cos.
     Points in `Triangle` must be given in a clockwise order!
 
 # Examples
+
 ```jldoctest
-julia> t = Triangle([Node(0, 0), Node(5, 5 * sqrt(3)), Node(10, 0)])
-julia> check_delaunay_condition(t, 5.0, -1.0)
+julia> t = Triangle([Node(0, 0), Node(5, 5 * sqrt(3)), Node(10, 0)]);
+
+julia> simple_delaunay_condition(t, 5.0, -1.0)
 false
 
-julia> check_delaunay_condition(t, 5.0, -10.0)
+julia> simple_delaunay_condition(t, 5.0, -10.0)
 true
 ```
 """
-function check_delaunay_condition(t::Triangle, x::Float64, y::Float64)
+function simple_delaunay_condition(t::Triangle, x::Float64, y::Float64)
     (x1, x2, x3, y1, y2, y3) = tvertices(t)
 
     sa = (x  - x1) * (x  - x3) + (y  - y1) * (y  - y3)
@@ -99,53 +122,26 @@ function check_delaunay_condition(t::Triangle, x::Float64, y::Float64)
     elseif sa >= 0 && sb >= 0
         return true
     else
-        return _check_delaunay_condition(t, x, y)
+        return _simple_delaunay_condition(t, x, y)
     end
 end
-
-#=
-Make tests with it later:
-tequilateral = Triangle([Node(0, 0), Node(5, 5 * sqrt(3)), Node(10, 0)])
-x1, y1 = 3.0,  1.0   # f
-x2, y2 = 3.0, -1.0   # f
-x3, y3 = 2.0, -4.0   # t
-x4, y4 = 8.0, -2.0   # f
-x5, y5 = 9.0,  0.0   # f
-x6, y6 = 9.0, -100.0 # t
-x7, y7 = 3.5, -5.0   # t
-tright = Triangle([Node(4, 0), Node(0, 0), Node(0, 3)])
-x1, y1 = 3.0, 2.0 # f
-x2, y2 = 4.0, 2.0 # f
-x3, y3 = 4.0, 3.0 # t - lies exactly on the circle
-x4, y4 = 4.0, 4.0 # t
-x5, y5 = 1.0, 3.0 # f
-x6, y6 = 1.0, 4.0 # t
-# outside (x2, y2) angle but still works
-x7, y7 = 2.0, -0.5 # f
-x8, y8 = 0.5, 0.5 # f
-x9, y9 = -0.1, 1.5 # f
-x10, y10 = 2.0, -2.0 # t
-x11, y11 = -1.0, 2.0 # t
-x12, y12 = -1.0, -1.0 # t
-x13, y13 = -1.0, 0.0 # t
-x14, y14 = 0.0, -1.0 # t
-=#
 
 """
     lies_inside(A::Node, B::Node, C::Node, D::Node)
 
-Check if `D` is inside `∠ABC`.
+Check if `D` is inside ``∠ABC``.
 
 !!! note
 
-    Works if `∠ABC` is less than 180°.
+    Works if ``∠ABC`` is less than ``180°``.
 
 !!! warning
     
-    If `∠ABC` is 90° this code gives `NaN`s and does not work.
-    And in general this code is unsafe because 0 division can occur.
+    If ``∠ABC`` is ``90°`` this function gives `NaN`s and does not work.
+    And in general this function is unsafe in case of 0 division
+    (in such a case the result is always `false`).
 """
-function lies_inside(A::Node, B::Node, C::Node, D::Node)
+function isinside(A::Node, B::Node, C::Node, D::Node)
     ax, ay = nodexy(A)
     bx, by = nodexy(B)
     cx, cy = nodexy(C)
@@ -157,39 +153,44 @@ function lies_inside(A::Node, B::Node, C::Node, D::Node)
     j = (dyay - byay * dxax / bxax) / (byay * axcx / bxax + cyay)
     i = (dxax + axcx * j) / bxax
 
-    println(i, " ", j)
-
     if i > 0 && j > 0
         return true
     end
     return false
 end
 
-#=
-Make tests with it later:
-## sharp
-a1, b1, c1 = Node(0, 0), Node(3, 1), Node(3, 0)
-d1 = Node(4, 1) # t
-d2 = Node(2, 1) # f
-# rearrange b and c
-a2, b2, c2 = Node(0, 0), Node(3, 0), Node(3, 1)
-d3 = Node(4, 1) # t
-d4 = Node(2, 1) # f
-## blunt (more 180 deg)
-a3, b3, c3 = Node(0, 0), Node(-3, -1), Node(1, 0)
-d5 = Node(0, 1) # t -> f
-d6 = Node(0, -1) # f -> t
-## right
-a4, b4, c4 = Node(0, 0), Node(0, 1), Node(1, 0)
-d7 = Node(1, 1) # t (works only if c -> b, b -> c, so c should be above)
-d8 = Node(2, -1) # f
-d9 = Node(-1, -1) # f
-d10 = Node(-1, 1) # f
-## blunt (less 180 deg)
-a5, b5, c5 = Node(0, 0), Node(-1, 1), Node(1, 0)
-d11 = Node(-1, 2) # t
-d12 = Node(2, 1) # t
-d13 = Node(-2, 1) # f
-d14 = Node(-2, 0) # f
-d15 = Node(-1, -1) # f
-=#
+"""
+    robust_delaunay_condition(t::Triangle, x::Float64, y::Float64)
+
+Return `false` if `(x, y)` is in circumscribed circle around `t` and false otherwise.
+
+Works slower than "simple" version but correctly in all cases
+(inside/outside the angle, inside/outside the triangle).
+Order of `Node`s in `t` does not matter.
+"""
+function robust_delaunay_condition(t::Triangle, x::Float64, y::Float64)
+    (x1, x2, x3, y1, y2, y3) = tvertices(t)
+
+    a = det([x1 y1 1; x2 y2 1; x3 y3 1])
+    sa = sign(a)
+    b = det([x1^2 + y1^2 y1  1; x2^2 + y2^2 y2  1; x3^2 + y3^2 y3  1])
+    c = det([x1^2 + y1^2 x1  1; x2^2 + y2^2 x2  1; x3^2 + y3^2 x3  1])
+    d = det([x1^2 + y1^2 x1 y1; x2^2 + y2^2 x2 y2; x3^2 + y3^2 x3 y3])
+
+    cond = (a * (x^2 + y^2) - b * x + c * y - d) * sa
+    return cond >= 0
+end
+
+"Return `true` if a point `(x, y)` is inside a given `t` or `false` otherwise."
+function isinside(t::Triangle, x::Float64, y::Float64)
+    (x1, x2, x3, y1, y2, y3) = tvertices(t)
+    
+    t1s = tsign(Triangle([Node(x, y), Node(x1, y1), Node(x2, y2)]))
+    t2s = tsign(Triangle([Node(x, y), Node(x2, y2), Node(x3, y3)]))
+    t3s = tsign(Triangle([Node(x, y), Node(x3, y3), Node(x1, y1)]))
+
+    has_neg = (t1s < 0) || (t2s < 0) || (t3s < 0)
+    has_pos = (t1s > 0) || (t2s > 0) || (t3s > 0)
+
+    return !(has_neg && has_pos)
+end
