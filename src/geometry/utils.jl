@@ -6,6 +6,7 @@ but not only.
 using LinearAlgebra: det
 using StaticArrays:  @SMatrix # immutable
 
+
 "Vertex of a `Triangle`."
 struct Node
     x::Float64
@@ -15,7 +16,6 @@ end
 function Node()
     Node(0, 0)
 end
-
 
 "Get `x` and `y` of a given `Node`."
 function nodexy(n::Node)
@@ -34,6 +34,15 @@ function matrix_to_nodes(m::Matrix{T} where T <: Real)
         push!(points, Node(x, y))
     end
     return points
+end
+
+"Get raw `Node`s coordinates."
+function export_nodes(ns::Vector{Node})
+    nsraw = zeros(length(ns), 2)
+    for (i, n) in enumerate(ns)
+        nsraw[i, :] = nodexy(n)
+    end
+    return nsraw
 end
 
 
@@ -95,6 +104,13 @@ function ccr(c::Circle)
     [c.center, c.radius]
 end
 
+"Return `Circle` in a form of `((xc, yc), radius)`."
+function ccr_tuples(c::Circle)
+    nc, r = ccr(c)
+    xc, yc = nodexy(nc)
+    return ((xc, yc), r)
+end
+
 
 """
 Special representation of a `Triangle` as indices
@@ -102,6 +118,24 @@ of `Node`s in a `Delaunay2D` triangulation.
 """
 struct DTriangle
     nodes::Tuple{Int64, Int64, Int64}
+end
+
+"Get `Node`s indices of a given `DTriangle`."
+function tnodes(t::DTriangle)
+    t.nodes
+end
+
+"Get raw `Node`s indices optionally substracting the `offset`."
+function export_nodes(ts::Vector{DTriangle}; offset=0)
+    tsraw = []
+    for t in ts
+        tns = tnodes(t)
+        if offset != 0
+            tns = map(ni -> ni - offset, tns)
+        end
+        push!(tsraw, tns)
+    end
+    return tsraw
 end
 
 function DTriangle()
@@ -127,6 +161,62 @@ end
 function Delaunay2D(points::Vector{Node})
     Delaunay2D(points, Dict(), Dict())
 end
+
+"""
+Get `DTriangle`s from a given `Delaunay2D`
+excluding the ones that contain points from a bounding frame.
+"""
+function export_triangles(dt::Delaunay2D)
+    et = []
+    for (t, _) in dt.triangles
+        tns = tnodes(t)
+        if all(>(4), tns)
+            tshifted = DTriangle(map(ni -> ni - 4, tns))
+            push!(et, tshifted)
+        end
+    end
+    return et
+end
+
+"""
+Get `Circle`s from a given `Delaunay2D`
+excluding the ones that are around `DTriangle`s
+which contain points from a bounding frame.
+"""
+function export_circles(dt::Delaunay2D)
+    ec = []
+    for (t, c) in dt.circles
+        tns = tnodes(t)
+        if all(>(4), tns)
+            push!(ec, c)
+        end
+    end
+    return ec
+end
+
+"""
+Get `Node`s and `DTriangle`s from a given `Delaunay2D`
+excluding the ones that are connected to a bounding frame.
+"""
+function export_dt(dt::Delaunay2D)
+    en = dt.nodes[5:end]
+    et = export_triangles(dt::Delaunay2D)
+    return en, et
+end
+
+"""
+Get `Node`s and `DTriangle`s from a given `Delaunay2D`
+(with bounding frame).
+"""
+function export_extended_dt(dt::Delaunay2D)
+    return dt.nodes, collect(keys(dt.triangles))
+end
+
+# """
+# .
+# """
+# function export_voronoi_regions(dt::Delaunay2D)
+# end
 
 
 """

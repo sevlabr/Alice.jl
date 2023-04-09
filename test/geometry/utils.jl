@@ -13,11 +13,11 @@ function round_circles(circles::Dict{DTriangle, Circle}; tol=6)
 end
 
 @testset "simple_delaunay" begin
-    @testset "raw contents" begin
-        points = [3 3; -5 -2; 3 -5; 1 -4; 2 -2; -5 4; 1 -5; -2 -3; -4 -3; 3 1]
-        pts::Vector{Node} = matrix_to_nodes(points)
-        dt = simple_delaunay(pts)
+    points = [3 3; -5 -2; 3 -5; 1 -4; 2 -2; -5 4; 1 -5; -2 -3; -4 -3; 3 1]
+    pts::Vector{Node} = matrix_to_nodes(points)
+    dt = simple_delaunay(pts)
 
+    @testset "raw contents" begin
         ref_nodes = [
                      Node(-24.3, -28.6); Node( 23.7, -28.6); Node( 23.7,  25.4);
                      Node(-24.3,  25.4); Node( 3   ,  3   ); Node(-5   , -2   );
@@ -79,6 +79,33 @@ end
             DTriangle((14, 7 , 2 )) => Circle(Node( 30.22,  -2.  ), 27.39),
         )
         @test round_circles(dt.circles, tol=2) == round_circles(ref_circles, tol=2)
+    end
+
+    @testset "exporters" begin
+        ref_triangles_shifted = Set([
+            DTriangle(( 5,  4,  3)); DTriangle(( 7,  3,  4)); DTriangle(( 8,  7,  4));
+            DTriangle(( 8,  4,  5)); DTriangle(( 8,  6,  2)); DTriangle(( 9,  7,  8));
+            DTriangle(( 9,  8,  2)); DTriangle((10,  1,  6)); DTriangle((10,  6,  8));
+            DTriangle((10,  8,  5)); DTriangle((10,  5,  3))
+        ])
+        @test Set(export_triangles(dt)) == ref_triangles_shifted
+
+        circles = export_circles(dt)
+        @test length(circles) == 11
+        # all R < 5.01
+        @test all(c -> Alice.ccr(c)[2] < 5.01, circles)
+        # all points coords < 7.76
+        @test all(c -> all(f -> abs(f) < 7.76, Alice.nodexy(Alice.ccr(c)[1])), circles)
+
+        ref_nodes = Set([
+            Node( 3,  3); Node(-5, -2); Node( 3, -5);
+            Node( 1, -4); Node( 2, -2); Node(-5,  4);
+            Node( 1, -5); Node(-2, -3); Node(-4, -3);
+            Node( 3,  1)
+        ])
+        nodes, triangles = export_dt(dt)
+        @test Set(triangles) == ref_triangles_shifted
+        @test Set(nodes)     == ref_nodes
     end
 end
 
