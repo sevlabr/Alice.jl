@@ -12,7 +12,7 @@ Generate points for unstructured grid around cylinder.
 Parameters specify the number of points to create.
 Cylinder has radius 0.8 and bounding frame is `x ∈ [-5, 10]`, `y ∈ [-5, 5]`.
 """
-function generate_cyl_points(boundary::T, inside::T, cyl::T) where T <: Int64
+function generate_cyl_points(boundary::T, inside::T, cyl::T; verbose=true) where T <: Int64
     n = boundary + inside + cyl
     points = zeros(Float64, 2, n)
 
@@ -59,7 +59,9 @@ function generate_cyl_points(boundary::T, inside::T, cyl::T) where T <: Int64
     pleave = setdiff(Set(1:size(pin, 2)), pdel)
     pin = pin[:, collect(pleave)]
     ldel = length(pdel)
-    println("Deleted ", ldel, " points.")
+    if verbose
+        println("Deleted ", ldel, " points.")
+    end
 
     # insert `inside` points into the `points`
     idx = n - inside + 1
