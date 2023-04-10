@@ -1,6 +1,6 @@
 module Alice
 
-include("geometry/utils.jl")
+include("geometry/Delaunay.jl")
 include("geometry/Mesh.jl")
 
 export
