@@ -27,8 +27,8 @@ end
 
 Convert ``M \\times 2`` `Matrix` to a `Vector{Node}`.
 """
-function matrix_to_nodes(m::Matrix{T} where T <: Real)
-    points = []
+function matrix_to_nodes(m::AbstractMatrix{T} where T <: Real)
+    points = Vector{Node}()
     for i = axes(m, 1)
         x, y = m[i, :]
         push!(points, Node(x, y))
@@ -146,6 +146,10 @@ function Base.getindex(t::DTriangle, i::Int64)
     t.nodes[i]
 end
 
+function Base.isless(l::DTriangle, r::DTriangle)
+    Base.isless(tnodes(l), tnodes(r))
+end
+
 
 """
 Representation of a 2D Delaunay triangulation: `Node`s, `Triangle`s and
@@ -167,7 +171,7 @@ Get `DTriangle`s from a given `Delaunay2D`
 excluding the ones that contain points from a bounding frame.
 """
 function export_triangles(dt::Delaunay2D)
-    et = []
+    et = Vector{DTriangle}()
     for (t, _) in dt.triangles
         tns = tnodes(t)
         if all(>(4), tns)
@@ -184,7 +188,7 @@ excluding the ones that are around `DTriangle`s
 which contain points from a bounding frame.
 """
 function export_circles(dt::Delaunay2D)
-    ec = []
+    ec = Vector{Circle}()
     for (t, c) in dt.circles
         tns = tnodes(t)
         if all(>(4), tns)
@@ -209,14 +213,72 @@ Get `Node`s and `DTriangle`s from a given `Delaunay2D`
 (with bounding frame).
 """
 function export_extended_dt(dt::Delaunay2D)
-    return dt.nodes, collect(keys(dt.triangles))
+    dtns = Vector{Node}()
+    dttris = Vector{DTriangle}()
+    dtns = dt.nodes
+    dttris = collect(keys(dt.triangles))
+    return dtns, dttris
 end
 
-# """
-# .
-# """
-# function export_voronoi_regions(dt::Delaunay2D)
-# end
+"""
+    export_voronoi_regions(dt::Delaunay2D)
+
+Given a `Delaunay2D` export coordinates and regions of
+Voronoi diagram as indexed data.
+
+Precicely, coordinates are vertices of the Voronoi diagram
+and circle centers of `Delaunay2D`. And regions is a mapping from
+region index to the indices of these vertices.
+"""
+function export_voronoi_regions(dt::Delaunay2D)
+    use_vertex = Dict{Int64, Vector{DTriangle}}(i => [] for i in 1:length(dt.nodes))
+    vor_coords = Vector{Node}()
+    index = Dict{DTriangle, Int64}()
+    # Build a list of coordinates and one index per triangle/region.
+    sorted_ts = sort(collect(keys(dt.triangles)))
+    for (tidx, t) in enumerate(sorted_ts)
+        cxy::Node, _ = ccr(dt.circles[t])
+        push!(vor_coords, cxy)
+
+        a, b, c = tnodes(t)
+        # Insert triangle, rotating it so the key is the "last" vertex.
+        push!(use_vertex[a], DTriangle((b, c, a)))
+        push!(use_vertex[b], DTriangle((c, a, b)))
+        push!(use_vertex[c], DTriangle((a, b, c)))
+        # Set tidx as the index to use with this triangle.
+        index[DTriangle((a, b, c))] = tidx
+        index[DTriangle((c, a, b))] = tidx
+        index[DTriangle((b, c, a))] = tidx
+    end
+
+    # Init regions per coordinate dictionary.
+    regions = Dict{Int64, Vector{Int64}}()
+    # Sort each region in a coherent order, and substitude each triangle
+    # by its index.
+    for i in 5:length(dt.nodes)
+        # Get a vertex (Node instance) of a triangle.
+        v = use_vertex[i][1][1]
+        r = Vector{Int64}()
+        for _ in 1:length(use_vertex[i])
+            # Search the triangle beginning with vertex v.
+            tv = DTriangle()
+            for t in use_vertex[i]
+                if t[1] == v
+                    tv = t
+                    break
+                end
+            end
+            # Add the index of this triangle to region.
+            push!(r, index[tv])
+            # Choose the next vertex to search.
+            v = tv[2]
+        end
+        # Store region.
+        regions[i - 4] = r
+    end
+
+    return vor_coords, regions
+end
 
 
 """
@@ -464,7 +526,7 @@ function add_point_bw!(p::Node, dt::Delaunay2D)
     idx = length(dt.nodes)
 
     # Search the `DTriangle`s whose circumcircle contains `Node` `p`.
-    bad_triangles = []
+    bad_triangles = Vector{DTriangle}()
     for t in keys(dt.triangles)
         circle = dt.circles[t]
         if !fast_delaunay_condition(circle, x, y)
@@ -476,7 +538,7 @@ function add_point_bw!(p::Node, dt::Delaunay2D)
     # expressed as the *opposite* triangle to current `Node` and
     # a list of `Node`s (point pair) that form this triangle and
     # are adjacent to the current `Node`.
-    boundary = []
+    boundary = Vector{Tuple{Int64, Int64, DTriangle}}()
     t = bad_triangles[1]
     node = 1
     # Get the opposite triangle of this `Node`.
@@ -512,7 +574,7 @@ function add_point_bw!(p::Node, dt::Delaunay2D)
     end
 
     # Retriangulate the hole left by bad_triangles.
-    new_triangles = []
+    new_triangles = Vector{DTriangle}()
     for (e1, e2, tri_op) in boundary
         # Create a new triangle using point p and points of the edge.
         t = DTriangle((idx, e1, e2))

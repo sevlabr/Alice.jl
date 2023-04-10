@@ -1,3 +1,6 @@
 .vscode
+
 docs/build/*
+
+python/*
 cheatsheet.md

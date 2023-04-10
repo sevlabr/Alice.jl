@@ -14,7 +14,7 @@ end
 
 @testset "simple_delaunay" begin
     points = [3 3; -5 -2; 3 -5; 1 -4; 2 -2; -5 4; 1 -5; -2 -3; -4 -3; 3 1]
-    pts::Vector{Node} = matrix_to_nodes(points)
+    pts = matrix_to_nodes(points)
     dt = simple_delaunay(pts)
 
     @testset "raw contents" begin
@@ -106,6 +106,33 @@ end
         nodes, triangles = export_dt(dt)
         @test Set(triangles) == ref_triangles_shifted
         @test Set(nodes)     == ref_nodes
+
+        ref_vn = [
+            Node(-33.5319  ,  -1.6     ), Node( 2.5     , -3.5   ), Node(-0.3      ,  27.6418 ),
+            Node(-29.8407  ,   1.0     ), Node( 1.68497 , 24.9797), Node(-0.3      , -28.9676 ),
+            Node(  2.0     , -26.7553  ), Node( 2.0     , -4.5   ), Node(-0.0714286,  -2.21429),
+            Node( -2.33333 ,   1.0     ), Node(-0.833333, -4.5   ), Node(-8.1296   , -20.574  ),
+            Node(-16.1857  , -14.1857  ), Node(-3.0     , -7.75  ), Node(-3.0      ,  -1.0    ),
+            Node( 30.7954  ,  -1.6     ), Node(26.5519  ,  2.0   ), Node(-1.1875   ,   2.0    ),
+            Node( 30.2234  ,  -2.0     ), Node( 7.0     , -2.0   ), Node(-1.41489  ,   1.39362),
+            Node( -0.772727,   0.590909)
+        ]
+        ref_vr = Dict(
+            1  => [ 5, 18, 17                ],
+            2  => [ 1, 13, 15, 10,  4        ],
+            3  => [ 2,  8,  7, 19, 20        ],
+            4  => [ 2,  9, 11,  8            ],
+            5  => [ 2, 20, 22,  9            ],
+            6  => [ 3,  4, 10, 21, 18,  5    ],
+            7  => [ 6,  7,  8, 11, 14, 12    ],
+            8  => [ 9, 22, 21, 10, 15, 14, 11],
+            9  => [12, 14, 15, 13            ],
+            10 => [16, 17, 18, 21, 22, 20, 19]
+        )
+        vn, vr = export_voronoi_regions(dt)
+        rawvn = export_nodes(vn)
+        @test isapprox(rawvn, export_nodes(ref_vn), atol=1e-2)
+        @test vr == ref_vr
     end
 end
 
