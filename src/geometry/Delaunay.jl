@@ -23,7 +23,7 @@ function nodexy(n::Node)
 end
 
 """
-    matrix_to_nodes(m::Vector{T} where T <: Real)
+    matrix_to_nodes(m::AbstractMatrix{T} where T <: Real)
 
 Convert ``M \\times 2`` `Matrix` to a `Vector{Node}`.
 """
